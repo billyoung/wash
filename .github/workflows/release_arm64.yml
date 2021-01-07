@@ -1,0 +1,44 @@
+name: Release - amd64
+
+on:
+  push:
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+
+jobs:
+  package:
+    runs-on: ubuntu-20.04
+    env:
+      REF: ${{ github.ref }}
+      PACKAGECLOUD_TOKEN: ${{ secrets.PACKAGECLOUD_API_TOKEN }}
+      OPENSSL_DIR: /usr/local/openssl-aarch64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Setup for arm64 cross compile
+        run: |
+          sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          cd /tmp
+          git clone https://github.com/openssl/openssl
+          cd openssl
+          git checkout OpenSSL_1_1_1h
+          sudo mkdir -p $OPENSSL_DIR
+          ./Configure linux-aarch64 --prefix=$OPENSSL_DIR --openssldir=$OPENSSL_DIR shared
+          make CC=aarch64-linux-gnu-gcc
+          sudo make install
+          rustup target add aarch64-unknown-linux-gnu
+      - name: Compile wash
+        run: cargo build --target aarch64-unknown-linux-gnu --release
+      - name: Install NFPM
+        run: curl -sfL https://install.goreleaser.com/github.com/goreleaser/nfpm.sh | sh
+      - name: Package amd64 (Debian)
+        run: |
+          export VERSION=$(echo $REF | cut -d/ -f3)
+          ./bin/nfpm pkg --packager deb -f build/nfpm.amd64.yaml
+          ./bin/nfpm pkg --packager rpm -f build/nfpm.amd64.yaml
+      - name: Push amd64 (Ubuntu 19.04)
+        run: curl -F "package[distro_version_id]=203" -F "package[package_file]=@$(ls wash_*_amd64.deb)" https://$PACKAGECLOUD_TOKEN:@packagecloud.io/api/v1/repos/wasmCloud/core/packages.json
+      - name: Push amd64 (Ubuntu 20.04)
+        run: curl -F "package[distro_version_id]=210" -F "package[package_file]=@$(ls wash_*_amd64.deb)" https://$PACKAGECLOUD_TOKEN:@packagecloud.io/api/v1/repos/wasmCloud/core/packages.json
+      - name: Push x86_64 (Fedora 32)
+        run: curl -F "package[distro_version_id]=216" -F "package[package_file]=@$(ls wash-*.x86_64.rpm)" https://$PACKAGECLOUD_TOKEN:@packagecloud.io/api/v1/repos/wasmCloud/core/packages.json
