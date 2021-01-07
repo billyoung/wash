@@ -1,4 +1,4 @@
-name: Release - amd64
+name: Release - arm64
 
 on:
   push:
