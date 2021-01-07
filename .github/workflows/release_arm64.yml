@@ -27,7 +27,7 @@ jobs:
           make CC=aarch64-linux-gnu-gcc
           sudo make install
           rustup target add aarch64-unknown-linux-gnu
-          bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+          sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
       - name: Compile wash
         run: cargo build --target aarch64-unknown-linux-gnu --release
       - name: Install NFPM
